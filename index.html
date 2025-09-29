@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ব্যাকগ্রাউন্ড রিমুভার</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            max-width: 100%;
+            margin: 10px 0;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #downloadBtn {
+            background-color: #2196F3;
+        }
+        #downloadBtn:hover {
+            background-color: #0b7dda;
+        }
+        p {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ব্যাকগ্রাউন্ড রিমুভার</h1>
+        <p>একটি ইমেজ আপলোড করুন (সবুজ/হলুদ ব্যাকগ্রাউন্ড সহ) এবং ব্যাকগ্রাউন্ড রিমুভ করুন।</p>
+        
+        <input type="file" id="imageInput" accept="image/*">
+        <br>
+        <canvas id="canvas" width="400" height="400"></canvas>
+        <br>
+        <button id="removeBtn" onclick="removeBackground()">ব্যাকগ্রাউন্ড রিমুভ করুন</button>
+        <button id="downloadBtn" onclick="downloadImage()" style="display:none;">ডাউনলোড করুন (PNG)</button>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let originalImageData = null;
+        let processedImageData = null;
+
+        imageInput.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        // ক্যানভাস সাইজ ইমেজের সাইজে সেট করুন
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        
+                        // অরিজিনাল ইমেজ ড্র করুন
+                        ctx.drawImage(img, 0, 0);
+                        originalImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        // প্রসেসড ডেটা রিসেট করুন
+                        processedImageData = null;
+                        document.getElementById('downloadBtn').style.display = 'none';
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        function removeBackground() {
+            if (!originalImageData) {
+                alert('প্রথমে একটি ইমেজ আপলোড করুন!');
+                return;
+            }
+
+            // অরিজিনাল ডেটা কপি করুন
+            let imageData = ctx.createImageData(canvas.width, canvas.height);
+            const data = originalImageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+
+                // গ্রিন স্ক্রিন চেক: যদি গ্রিন/হলুদ (G > 150 এবং |G - R| > 50 এবং |G - B| > 50) হয়, তাহলে স্বচ্ছ করুন
+                if (g > 150 && Math.abs(g - r) > 50 && Math.abs(g - b) > 50) {
+                    imageData.data[i] = r;     // রেড রাখুন (কিন্তু অ্যালফা 0)
+                    imageData.data[i + 1] = g;
+                    imageData.data[i + 2] = b;
+                    imageData.data[i + 3] = 0; // স্বচ্ছ (অ্যালফা = 0)
+                } else {
+                    imageData.data[i] = r;
+                    imageData.data[i + 1] = g;
+                    imageData.data[i + 2] = b;
+                    imageData.data[i + 3] = 255; // অপারেন্ট
+                }
+            }
+
+            // প্রসেসড ইমেজ ড্র করুন
+            ctx.putImageData(imageData, 0, 0);
+            processedImageData = imageData;
+            document.getElementById('downloadBtn').style.display = 'inline-block';
+        }
+
+        function downloadImage() {
+            if (!processedImageData) {
+                alert('প্রথমে ব্যাকগ্রাউন্ড রিমুভ করুন!');
+                return;
+            }
+
+            const link = document.createElement('a');
+            link.download = 'removed-background.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
